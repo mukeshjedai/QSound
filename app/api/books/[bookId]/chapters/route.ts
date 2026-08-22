@@ -7,23 +7,34 @@ export async function POST(request: Request, context: { params: Promise<{ bookId
   try {
     const { bookId } = await context.params;
     const data = await request.formData();
-    const title = String(data.get("title") || "").trim();
-    const file = data.get("audio");
-    if (!title || !(file instanceof File) || !file.type.startsWith("audio/")) {
-      return NextResponse.json({ error: "A chapter title and audio file are required." }, { status: 400 });
+    const files = data.getAll("audio").filter((item): item is File => item instanceof File);
+    if (!files.length || files.some((file) => !file.type.startsWith("audio/"))) {
+      return NextResponse.json({ error: "One or more valid audio files are required." }, { status: 400 });
     }
     const books = await getBooks();
     const book = books.find((item) => item.id === bookId);
     if (!book) return NextResponse.json({ error: "Book not found." }, { status: 404 });
-    if (book.chapters.length >= book.totalChapters) {
-      return NextResponse.json({ error: "This book already has all of its chapters." }, { status: 400 });
+    const remaining = book.totalChapters - book.chapters.length;
+    if (files.length > remaining) {
+      return NextResponse.json({ error: `This book only has room for ${remaining} more ${remaining === 1 ? "chapter" : "chapters"}.` }, { status: 400 });
     }
-    const chapterId = crypto.randomUUID();
-    const uploaded = await uploadAudio(bookId, chapterId, file);
-    const chapter = { id: chapterId, title, ...uploaded, createdAt: new Date().toISOString() };
-    book.chapters.push(chapter);
+
+    const firstChapterNumber = book.chapters.length + 1;
+    const chapters = [];
+    for (const [index, file] of files.entries()) {
+      const chapterId = crypto.randomUUID();
+      const uploaded = await uploadAudio(bookId, chapterId, file);
+      const chapter = {
+        id: chapterId,
+        title: `Chapter ${firstChapterNumber + index}`,
+        ...uploaded,
+        createdAt: new Date().toISOString()
+      };
+      book.chapters.push(chapter);
+      chapters.push(chapter);
+    }
     await saveBooks(books);
-    return NextResponse.json(chapter, { status: 201 });
+    return NextResponse.json(chapters, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to upload chapter" }, { status: 500 });
   }
