@@ -41,3 +41,14 @@
 .dropzone {
   transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
+
+.field-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: -8px;
+}
+
+.detail-actions {
+  flex-wrap: wrap;
+}
