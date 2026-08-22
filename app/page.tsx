@@ -156,8 +156,15 @@ function CreateBook({ onClose, onCreated }: { onClose: () => void; onCreated: (b
 }
 
 function UploadChapter({ book, onClose, onUploaded }: { book: Book; onClose: () => void; onUploaded: () => void }) {
-  const [files, setFiles] = useState<File[]>([]); const [saving, setSaving] = useState(false); const [error, setError] = useState(""); const [uploadedCount, setUploadedCount] = useState(0);
+  const [files, setFiles] = useState<File[]>([]); const [saving, setSaving] = useState(false); const [error, setError] = useState(""); const [uploadedCount, setUploadedCount] = useState(0); const [dragging, setDragging] = useState(false);
   const remaining = book.totalChapters - book.chapters.length;
+  function chooseFiles(selected: File[]) {
+    const audioFiles = selected.filter((file) => file.type.startsWith("audio/"));
+    if (audioFiles.length !== selected.length) setError("Only audio files can be added.");
+    else if (audioFiles.length > remaining) setError(`Choose no more than ${remaining} audio ${remaining === 1 ? "file" : "files"}.`);
+    else setError("");
+    setFiles(audioFiles.slice(0, remaining));
+  }
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!files.length) return setError("Choose at least one audio file.");
@@ -184,7 +191,7 @@ function UploadChapter({ book, onClose, onUploaded }: { book: Book; onClose: () 
       setSaving(false);
     }
   }
-  return <Modal title="Add audio chapters" subtitle={`Choose up to ${remaining} audio ${remaining === 1 ? "file" : "files"}. Each file becomes the next numbered chapter in “${book.title}”.`} onClose={onClose}><form onSubmit={submit}><label className={`dropzone ${files.length ? "has-file" : ""}`}><input type="file" accept="audio/*" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))}/>{files.length ? <><Check/><b>{files.length} {files.length === 1 ? "audio file" : "audio files"} selected</b><small>{files.map((file, index) => `Chapter ${book.chapters.length + index + 1}: ${file.name}`).join(" · ")}</small></> : <><Upload/><b>Choose audio files</b><small>MP3, M4A, WAV, or AAC · Select files in chapter order</small></>}</label>{error && <p className="error">{error}</p>}<button className="primary submit" disabled={saving || !files.length}>{saving ? <Loader2 className="spin"/> : <Upload/>}{saving ? `Uploaded ${uploadedCount} of ${files.length}…` : `Create ${files.length || ""} ${files.length === 1 ? "chapter" : "chapters"}`}</button></form></Modal>;
+  return <Modal title="Add audio chapters" subtitle={`Choose up to ${remaining} audio ${remaining === 1 ? "file" : "files"}. Each file becomes the next numbered chapter in “${book.title}”.`} onClose={onClose}><form onSubmit={submit}><label className={`dropzone ${files.length ? "has-file" : ""} ${dragging ? "is-dragging" : ""}`} onDragEnter={(e) => { e.preventDefault(); setDragging(true); }} onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setDragging(true); }} onDragLeave={(e) => { e.preventDefault(); if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragging(false); }} onDrop={(e) => { e.preventDefault(); setDragging(false); chooseFiles(Array.from(e.dataTransfer.files)); }}><input type="file" accept="audio/*" multiple onChange={(e) => chooseFiles(Array.from(e.target.files || []))}/>{dragging ? <><Upload/><b>Drop audio files here</b><small>Files will become chapters in this order</small></> : files.length ? <><Check/><b>{files.length} {files.length === 1 ? "audio file" : "audio files"} selected</b><small>{files.map((file, index) => `Chapter ${book.chapters.length + index + 1}: ${file.name}`).join(" · ")}</small></> : <><Upload/><b>Drag and drop audio files here</b><small>or click to browse · MP3, M4A, WAV, or AAC</small></>}</label>{error && <p className="error">{error}</p>}<button className="primary submit" disabled={saving || !files.length}>{saving ? <Loader2 className="spin"/> : <Upload/>}{saving ? `Uploaded ${uploadedCount} of ${files.length}…` : `Create ${files.length || ""} ${files.length === 1 ? "chapter" : "chapters"}`}</button></form></Modal>;
 }
 
 async function readJson(response: Response) {

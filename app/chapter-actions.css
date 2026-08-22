@@ -29,3 +29,15 @@
 @media (hover: none) {
   .delete-chapter { opacity: 1; }
 }
+
+.dropzone.is-dragging {
+  border-color: var(--orange);
+  border-style: solid;
+  background: #e9693c12;
+  box-shadow: inset 0 0 0 2px #e9693c1f;
+  transform: scale(1.01);
+}
+
+.dropzone {
+  transition: border-color 150ms ease, background 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
