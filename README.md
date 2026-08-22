@@ -17,5 +17,17 @@ Import the repository in Vercel and add these Environment Variables:
 - `AZURE_STORAGE_CONNECTION_STRING`
 - `AZURE_STORAGE_CONTAINER` (optional; defaults to `qsound`)
 
-Then deploy. For large audio files, review your Vercel plan's request body and function duration limits. A future production-scale version should use short-lived Azure SAS URLs for direct browser uploads.
+Then deploy. Audio files use short-lived Azure SAS URLs and bypass Vercel functions, so large uploads are not constrained by Vercel's request-body limit.
+
+## Azure CORS for audio uploads
+
+Audio files upload directly from the browser to Azure with a short-lived, write-only SAS URL, avoiding Vercel's request-size limit. In the Azure portal, open the Storage Account, then **Resource sharing (CORS) → Blob service** and add:
+
+- Allowed origins: your Vercel URL, for example `https://q-sound-blush.vercel.app`
+- Allowed methods: `PUT`, `OPTIONS`
+- Allowed headers: `content-type`, `x-ms-blob-type`
+- Exposed headers: `etag`, `x-ms-request-id`
+- Max age: `3600`
+
+Add `http://localhost:3000` as another origin when testing locally. Do not use `*` for the production origin.
 "# QSound" 

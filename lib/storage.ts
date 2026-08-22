@@ -1,4 +1,4 @@
-import { BlobServiceClient, ContainerClient } from "@azure/storage-blob";
+import { BlobSASPermissions, BlobServiceClient, ContainerClient, generateBlobSASQueryParameters, SASProtocol, StorageSharedKeyCredential } from "@azure/storage-blob";
 import type { Book } from "./types";
 
 const INDEX_BLOB = "data/books.json";
@@ -51,6 +51,34 @@ export async function getAudioBlob(blobName: string) {
 export async function deleteAudio(blobName: string) {
   const client = container();
   await client.getBlockBlobClient(blobName).deleteIfExists();
+}
+
+export async function createDirectUploadUrl(blobName: string, contentType: string) {
+  const client = container();
+  await client.createIfNotExists();
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING || "";
+  const values = Object.fromEntries(connectionString.split(";").filter(Boolean).map((part) => {
+    const separator = part.indexOf("=");
+    return [part.slice(0, separator), part.slice(separator + 1)];
+  }));
+  if (!values.AccountName || !values.AccountKey) throw new Error("Azure account credentials are unavailable");
+  const credential = new StorageSharedKeyCredential(values.AccountName, values.AccountKey);
+  const startsOn = new Date(Date.now() - 60_000);
+  const expiresOn = new Date(Date.now() + 30 * 60_000);
+  const sas = generateBlobSASQueryParameters({
+    containerName: client.containerName,
+    blobName,
+    permissions: BlobSASPermissions.parse("cw"),
+    protocol: SASProtocol.Https,
+    startsOn,
+    expiresOn,
+    contentType
+  }, credential).toString();
+  return `${client.getBlockBlobClient(blobName).url}?${sas}`;
+}
+
+export async function audioBlobExists(blobName: string) {
+  return container().getBlockBlobClient(blobName).exists();
 }
 
 async function streamToText(stream: NodeJS.ReadableStream | undefined): Promise<string> {

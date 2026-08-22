@@ -156,10 +156,41 @@ function CreateBook({ onClose, onCreated }: { onClose: () => void; onCreated: (b
 }
 
 function UploadChapter({ book, onClose, onUploaded }: { book: Book; onClose: () => void; onUploaded: () => void }) {
-  const [files, setFiles] = useState<File[]>([]); const [saving, setSaving] = useState(false); const [error, setError] = useState("");
+  const [files, setFiles] = useState<File[]>([]); const [saving, setSaving] = useState(false); const [error, setError] = useState(""); const [uploadedCount, setUploadedCount] = useState(0);
   const remaining = book.totalChapters - book.chapters.length;
-  async function submit(e: React.FormEvent<HTMLFormElement>) { e.preventDefault(); if (!files.length) return setError("Choose at least one audio file."); if (files.length > remaining) return setError(`Choose no more than ${remaining} audio ${remaining === 1 ? "file" : "files"}.`); setSaving(true); setError(""); const data = new FormData(); files.forEach((file) => data.append("audio", file)); const response = await fetch(`/api/books/${book.id}/chapters`, {method:"POST", body:data}); const json = await response.json(); setSaving(false); if (!response.ok) setError(json.error); else onUploaded(); }
-  return <Modal title="Add audio chapters" subtitle={`Choose up to ${remaining} audio ${remaining === 1 ? "file" : "files"}. Each file becomes the next numbered chapter in “${book.title}”.`} onClose={onClose}><form onSubmit={submit}><label className={`dropzone ${files.length ? "has-file" : ""}`}><input type="file" accept="audio/*" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))}/>{files.length ? <><Check/><b>{files.length} {files.length === 1 ? "audio file" : "audio files"} selected</b><small>{files.map((file, index) => `Chapter ${book.chapters.length + index + 1}: ${file.name}`).join(" · ")}</small></> : <><Upload/><b>Choose audio files</b><small>MP3, M4A, WAV, or AAC · Select files in chapter order</small></>}</label>{error && <p className="error">{error}</p>}<button className="primary submit" disabled={saving || !files.length}>{saving ? <Loader2 className="spin"/> : <Upload/>}{saving ? `Uploading ${files.length}…` : `Create ${files.length || ""} ${files.length === 1 ? "chapter" : "chapters"}`}</button></form></Modal>;
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!files.length) return setError("Choose at least one audio file.");
+    if (files.length > remaining) return setError(`Choose no more than ${remaining} audio ${remaining === 1 ? "file" : "files"}.`);
+    setSaving(true); setError(""); setUploadedCount(0);
+    try {
+      const prepare = await fetch(`/api/books/${book.id}/uploads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "prepare", files: files.map((file) => ({ name: file.name, type: file.type, size: file.size })) }) });
+      const prepared = await readJson(prepare);
+      if (!prepare.ok) throw new Error(prepared.error || "Unable to prepare the upload.");
+
+      for (const [index, upload] of prepared.uploads.entries()) {
+        const response = await fetch(upload.uploadUrl, { method: "PUT", headers: { "x-ms-blob-type": "BlockBlob", "Content-Type": files[index].type }, body: files[index] });
+        if (!response.ok) throw new Error(`Azure rejected ${files[index].name}. Check the storage account CORS settings.`);
+        setUploadedCount(index + 1);
+      }
+
+      const uploads = prepared.uploads.map(({ uploadUrl: _uploadUrl, ...upload }: { uploadUrl: string }) => upload);
+      const finalize = await fetch(`/api/books/${book.id}/uploads`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "finalize", uploads }) });
+      const finalized = await readJson(finalize);
+      if (!finalize.ok) throw new Error(finalized.error || "Unable to create the chapters.");
+      onUploaded();
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Upload failed.");
+      setSaving(false);
+    }
+  }
+  return <Modal title="Add audio chapters" subtitle={`Choose up to ${remaining} audio ${remaining === 1 ? "file" : "files"}. Each file becomes the next numbered chapter in “${book.title}”.`} onClose={onClose}><form onSubmit={submit}><label className={`dropzone ${files.length ? "has-file" : ""}`}><input type="file" accept="audio/*" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))}/>{files.length ? <><Check/><b>{files.length} {files.length === 1 ? "audio file" : "audio files"} selected</b><small>{files.map((file, index) => `Chapter ${book.chapters.length + index + 1}: ${file.name}`).join(" · ")}</small></> : <><Upload/><b>Choose audio files</b><small>MP3, M4A, WAV, or AAC · Select files in chapter order</small></>}</label>{error && <p className="error">{error}</p>}<button className="primary submit" disabled={saving || !files.length}>{saving ? <Loader2 className="spin"/> : <Upload/>}{saving ? `Uploaded ${uploadedCount} of ${files.length}…` : `Create ${files.length || ""} ${files.length === 1 ? "chapter" : "chapters"}`}</button></form></Modal>;
+}
+
+async function readJson(response: Response) {
+  const text = await response.text();
+  try { return JSON.parse(text); }
+  catch { return { error: response.ok ? "The server returned an invalid response." : `Upload failed (${response.status}).` }; }
 }
 
 function Player({ book, chapter, index, isPlaying, loop, progress, duration, onToggle, onLoop, onNext, onPrev, onSeek }: { book: Book; chapter: Chapter; index: number; isPlaying: boolean; loop: boolean; progress: number; duration: number; onToggle: () => void; onLoop: () => void; onNext: () => void; onPrev: () => void; onSeek: (v:number) => void }) {
