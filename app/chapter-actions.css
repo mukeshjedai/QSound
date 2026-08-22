@@ -1,0 +1,31 @@
+.delete-chapter {
+  margin-left: auto;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #9b9188;
+  display: grid;
+  place-items: center;
+  opacity: 0;
+  transition: opacity 150ms ease, color 150ms ease, background 150ms ease;
+}
+
+.chapter-row:hover .delete-chapter,
+.delete-chapter:focus-visible {
+  opacity: 1;
+}
+
+.delete-chapter:hover {
+  color: #a83333;
+  background: #a8333312;
+}
+
+.chapter-row .row-play {
+  margin-left: 0;
+}
+
+@media (hover: none) {
+  .delete-chapter { opacity: 1; }
+}

@@ -48,6 +48,11 @@ export async function getAudioBlob(blobName: string) {
   return client.getBlockBlobClient(blobName);
 }
 
+export async function deleteAudio(blobName: string) {
+  const client = container();
+  await client.getBlockBlobClient(blobName).deleteIfExists();
+}
+
 async function streamToText(stream: NodeJS.ReadableStream | undefined): Promise<string> {
   if (!stream) return "[]";
   const chunks: Buffer[] = [];

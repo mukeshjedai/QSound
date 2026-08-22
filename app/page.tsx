@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, Check, ChevronLeft, ChevronRight, Headphones, Library, ListMusic, Loader2, Pause, Play, Plus, Repeat2, Search, Upload, Volume2, X } from "lucide-react";
+import { BookOpen, Check, ChevronLeft, ChevronRight, Headphones, Library, ListMusic, Loader2, Pause, Play, Plus, Repeat2, Search, Trash2, Upload, Volume2, X } from "lucide-react";
 import type { Book, Chapter } from "@/lib/types";
 
 type Playing = { book: Book; index: number } | null;
@@ -86,7 +86,18 @@ export default function Home() {
           </section>
         </>
       ) : (
-        <BookDetail book={selected} onBack={() => setSelected(null)} onUpload={() => setUploadOpen(true)} onPlay={playChapter} playing={playing} isPlaying={isPlaying}/>
+        <BookDetail book={selected} onBack={() => setSelected(null)} onUpload={() => setUploadOpen(true)} onPlay={playChapter} onDelete={async (chapter) => {
+          if (!window.confirm(`Delete “${chapter.title}” and its audio file? This cannot be undone.`)) return;
+          const response = await fetch(`/api/books/${selected.id}/chapters/${chapter.id}`, { method: "DELETE" });
+          const data = await response.json();
+          if (!response.ok) return window.alert(data.error || "Unable to delete chapter.");
+          if (playing?.book.id === selected.id && playing.book.chapters[playing.index]?.id === chapter.id) {
+            audioRef.current?.pause();
+            setPlaying(null);
+            setIsPlaying(false);
+          }
+          await refresh();
+        }} playing={playing} isPlaying={isPlaying}/>
       )}
 
       {createOpen && <CreateBook onClose={() => setCreateOpen(false)} onCreated={(book) => { setBooks((b) => [book, ...b]); setCreateOpen(false); setSelected(book); }}/>} 
@@ -105,7 +116,7 @@ function BookCard({ book, index, onOpen, onPlay }: { book: Book; index: number; 
   </article>;
 }
 
-function BookDetail({ book, onBack, onUpload, onPlay, playing, isPlaying }: { book: Book; onBack: () => void; onUpload: () => void; onPlay: (b: Book, i: number) => void; playing: Playing; isPlaying: boolean }) {
+function BookDetail({ book, onBack, onUpload, onPlay, onDelete, playing, isPlaying }: { book: Book; onBack: () => void; onUpload: () => void; onPlay: (b: Book, i: number) => void; onDelete: (chapter: Chapter) => void; playing: Playing; isPlaying: boolean }) {
   return <section className="detail">
     <button className="back" onClick={onBack}><ChevronLeft/> Back to library</button>
     <div className="detail-hero">
@@ -116,7 +127,7 @@ function BookDetail({ book, onBack, onUpload, onPlay, playing, isPlaying }: { bo
     </div>
     <div className="chapters-head"><div><span className="kicker">CONTENTS</span><h2>Chapters</h2></div><span>{book.chapters.length}/{book.totalChapters} complete</span></div>
     <div className="progress-line"><i style={{width: `${(book.chapters.length / book.totalChapters) * 100}%`}}/></div>
-    <div className="chapter-list">{book.chapters.length ? book.chapters.map((ch, i) => { const active = playing?.book.id === book.id && playing.index === i; return <button key={ch.id} className={`chapter-row ${active ? "active" : ""}`} onClick={() => onPlay(book, i)}><span className="chapter-number">{active && isPlaying ? <Pause size={16} fill="currentColor"/> : <>{String(i + 1).padStart(2, "0")}</>}</span><span><b>{ch.title}</b><small>Chapter {i + 1}</small></span><span className="row-play">{active && isPlaying ? <Pause/> : <Play fill="currentColor"/>}</span></button>; }) : <div className="empty compact"><ListMusic/><h3>No chapters yet</h3><p>Upload the first chapter to start listening.</p><button className="secondary" onClick={onUpload}><Upload size={17}/> Upload chapter</button></div>}</div>
+    <div className="chapter-list">{book.chapters.length ? book.chapters.map((ch, i) => { const active = playing?.book.id === book.id && playing.index === i; return <div key={ch.id} className={`chapter-row ${active ? "active" : ""}`} onClick={() => onPlay(book, i)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onPlay(book, i); }}><span className="chapter-number">{active && isPlaying ? <Pause size={16} fill="currentColor"/> : <>{String(i + 1).padStart(2, "0")}</>}</span><span><b>{ch.title}</b><small>Chapter {i + 1}</small></span><button className="delete-chapter" title={`Delete ${ch.title}`} aria-label={`Delete ${ch.title}`} onClick={(e) => { e.stopPropagation(); onDelete(ch); }}><Trash2 size={17}/></button><span className="row-play">{active && isPlaying ? <Pause/> : <Play fill="currentColor"/>}</span></div>; }) : <div className="empty compact"><ListMusic/><h3>No chapters yet</h3><p>Upload the first chapter to start listening.</p><button className="secondary" onClick={onUpload}><Upload size={17}/> Upload chapter</button></div>}</div>
   </section>;
 }
 
