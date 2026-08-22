@@ -11,6 +11,12 @@ function container(): ContainerClient {
   );
 }
 
+function service() {
+  const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+  if (!connectionString) throw new Error("AZURE_STORAGE_CONNECTION_STRING is not configured");
+  return BlobServiceClient.fromConnectionString(connectionString);
+}
+
 export async function getBooks(): Promise<Book[]> {
   const client = container();
   await client.createIfNotExists();
@@ -79,6 +85,35 @@ export async function createDirectUploadUrl(blobName: string, contentType: strin
 
 export async function audioBlobExists(blobName: string) {
   return container().getBlockBlobClient(blobName).exists();
+}
+
+export async function ensureUploadCors(origin: string) {
+  const url = new URL(origin);
+  if (url.origin !== origin || (url.protocol !== "https:" && url.hostname !== "localhost")) {
+    throw new Error("The application origin is not valid for direct uploads");
+  }
+  const client = service();
+  const properties = await client.getProperties();
+  const cors = [...(properties.cors || [])];
+  const uploadRule = cors.find((rule) =>
+    rule.allowedMethods.split(",").includes("PUT") &&
+    (rule.allowedHeaders.includes("*") || rule.allowedHeaders.toLowerCase().includes("x-ms-blob-type"))
+  );
+  if (uploadRule) {
+    const origins = uploadRule.allowedOrigins.split(",").map((item) => item.trim());
+    if (origins.includes(origin) || origins.includes("*")) return;
+    uploadRule.allowedOrigins = [...origins, origin].join(",");
+  } else {
+    if (cors.length >= 5) throw new Error("Azure already has the maximum number of CORS rules; add this app origin manually");
+    cors.push({
+      allowedOrigins: origin,
+      allowedMethods: "PUT,OPTIONS",
+      allowedHeaders: "content-type,x-ms-blob-type",
+      exposedHeaders: "etag,x-ms-request-id",
+      maxAgeInSeconds: 3600
+    });
+  }
+  await client.setProperties({ ...properties, cors });
 }
 
 async function streamToText(stream: NodeJS.ReadableStream | undefined): Promise<string> {

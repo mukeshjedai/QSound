@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { audioBlobExists, createDirectUploadUrl, getBooks, saveBooks } from "@/lib/storage";
+import { audioBlobExists, createDirectUploadUrl, ensureUploadCors, getBooks, saveBooks } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -15,6 +15,12 @@ export async function POST(request: Request, context: { params: Promise<{ bookId
     if (!book) return NextResponse.json({ error: "Book not found." }, { status: 404 });
 
     if (body.action === "prepare") {
+      const requestOrigin = request.headers.get("origin");
+      const appOrigin = new URL(request.url).origin;
+      if (!requestOrigin || requestOrigin !== appOrigin) {
+        return NextResponse.json({ error: "Upload requests must come from this application." }, { status: 403 });
+      }
+      await ensureUploadCors(appOrigin);
       const files: IncomingFile[] = Array.isArray(body.files) ? body.files : [];
       const valid = files.length > 0 && files.every((file) =>
         typeof file.name === "string" && typeof file.type === "string" && file.type.startsWith("audio/")

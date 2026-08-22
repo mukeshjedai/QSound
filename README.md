@@ -21,7 +21,9 @@ Then deploy. Audio files use short-lived Azure SAS URLs and bypass Vercel functi
 
 ## Azure CORS for audio uploads
 
-Audio files upload directly from the browser to Azure with a short-lived, write-only SAS URL, avoiding Vercel's request-size limit. In the Azure portal, open the Storage Account, then **Resource sharing (CORS) → Blob service** and add:
+Audio files upload directly from the browser to Azure with a short-lived, write-only SAS URL, avoiding Vercel's request-size limit. The app safely adds its own exact deployment origin to the Blob Service CORS configuration before the first upload while preserving existing rules.
+
+If the storage account already has Azure's maximum of five CORS rules, open the Storage Account in the Azure portal, then **Resource sharing (CORS) → Blob service**, and add:
 
 - Allowed origins: your Vercel URL, for example `https://q-sound-blush.vercel.app`
 - Allowed methods: `PUT`, `OPTIONS`
