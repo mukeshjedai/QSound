@@ -54,7 +54,21 @@ export default function Home() {
     if (!playing) return;
     const nextIndex = playing.index + 1;
     if (nextIndex < playing.book.chapters.length) setPlaying({ ...playing, index: nextIndex });
-    else { setIsPlaying(false); setProgress(0); }
+    else {
+      if (audioRef.current) audioRef.current.currentTime = 0;
+      setIsPlaying(false);
+      setProgress(0);
+    }
+  }
+
+  function handleChapterEnded() {
+    const audio = audioRef.current;
+    if (loop && audio) {
+      audio.currentTime = 0;
+      audio.play().catch(() => setIsPlaying(false));
+      return;
+    }
+    next();
   }
 
   const filtered = books.filter((b) => `${b.title} ${b.author}`.toLowerCase().includes(query.toLowerCase()));
@@ -103,7 +117,7 @@ export default function Home() {
       {createOpen && <CreateBook onClose={() => setCreateOpen(false)} onCreated={(book) => { setBooks((b) => [book, ...b]); setCreateOpen(false); setSelected(book); }}/>} 
       {uploadOpen && selected && <UploadChapter book={selected} onClose={() => setUploadOpen(false)} onUploaded={async () => { await refresh(); setUploadOpen(false); }}/>} 
 
-      <audio ref={audioRef} loop={loop} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onTimeUpdate={(e) => setProgress(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)} onEnded={() => { if (!loop) next(); }}/>
+      <audio ref={audioRef} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onTimeUpdate={(e) => setProgress(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)} onEnded={handleChapterEnded}/>
       {playing && chapter && <Player book={playing.book} chapter={chapter} index={playing.index} isPlaying={isPlaying} loop={loop} progress={progress} duration={duration} onToggle={() => playChapter(playing.book, playing.index)} onLoop={() => setLoop(!loop)} onNext={next} onPrev={() => playing.index > 0 && setPlaying({...playing, index: playing.index - 1})} onSeek={(v) => { if (audioRef.current) audioRef.current.currentTime = v; }}/>} 
     </main>
   );
