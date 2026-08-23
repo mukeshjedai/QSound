@@ -14,6 +14,7 @@ export default function Home() {
   const [selected, setSelected] = useState<Book | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [increaseOpen, setIncreaseOpen] = useState(false);
+  const [renameBookOpen, setRenameBookOpen] = useState(false);
   const [renameChapter, setRenameChapter] = useState<Chapter | null>(null);
   const [playing, setPlaying] = useState<Playing>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -33,6 +34,13 @@ export default function Home() {
   useEffect(() => {
     if (selected) setSelected(books.find((b) => b.id === selected.id) || null);
   }, [books, selected?.id]);
+  useEffect(() => {
+    setPlaying((current) => {
+      if (!current) return current;
+      const updatedBook = books.find((book) => book.id === current.book.id);
+      return updatedBook && updatedBook !== current.book ? { ...current, book: updatedBook } : current;
+    });
+  }, [books]);
 
   const chapter = playing?.book.chapters[playing.index];
   useEffect(() => {
@@ -102,7 +110,7 @@ export default function Home() {
           </section>
         </>
       ) : (
-        <BookDetail book={selected} onBack={() => setSelected(null)} onUpload={() => setUploadOpen(true)} onIncrease={() => setIncreaseOpen(true)} onRename={setRenameChapter} onPlay={playChapter} onDelete={async (chapter) => {
+        <BookDetail book={selected} onBack={() => setSelected(null)} onUpload={() => setUploadOpen(true)} onIncrease={() => setIncreaseOpen(true)} onRenameBook={() => setRenameBookOpen(true)} onRename={setRenameChapter} onPlay={playChapter} onDelete={async (chapter) => {
           if (!window.confirm(`Delete “${chapter.title}” and its audio file? This cannot be undone.`)) return;
           const response = await fetch(`/api/books/${selected.id}/chapters/${chapter.id}`, { method: "DELETE" });
           const data = await response.json();
@@ -121,6 +129,9 @@ export default function Home() {
       {increaseOpen && selected && (
         <IncreaseChapters book={selected} onClose={() => setIncreaseOpen(false)} onUpdated={async () => { await refresh(); setIncreaseOpen(false); }}/>
       )}
+      {renameBookOpen && selected && (
+        <RenameBook book={selected} onClose={() => setRenameBookOpen(false)} onRenamed={async () => { await refresh(); setRenameBookOpen(false); }}/>
+      )}
       {renameChapter && selected && (
         <RenameChapter book={selected} chapter={renameChapter} onClose={() => setRenameChapter(null)} onRenamed={async () => { await refresh(); setRenameChapter(null); }}/>
       )}
@@ -138,13 +149,13 @@ function BookCard({ book, index, onOpen, onPlay }: { book: Book; index: number; 
   </article>;
 }
 
-function BookDetail({ book, onBack, onUpload, onIncrease, onRename, onPlay, onDelete, playing, isPlaying }: { book: Book; onBack: () => void; onUpload: () => void; onIncrease: () => void; onRename: (chapter: Chapter) => void; onPlay: (b: Book, i: number) => void; onDelete: (chapter: Chapter) => void; playing: Playing; isPlaying: boolean }) {
+function BookDetail({ book, onBack, onUpload, onIncrease, onRenameBook, onRename, onPlay, onDelete, playing, isPlaying }: { book: Book; onBack: () => void; onUpload: () => void; onIncrease: () => void; onRenameBook: () => void; onRename: (chapter: Chapter) => void; onPlay: (b: Book, i: number) => void; onDelete: (chapter: Chapter) => void; playing: Playing; isPlaying: boolean }) {
   return <section className="detail">
     <button className="back" onClick={onBack}><ChevronLeft/> Back to library</button>
     <div className="detail-hero">
       <div className="large-cover" style={{"--accent": book.accent} as React.CSSProperties}><BookOpen size={52}/><strong>{book.title}</strong><small>{book.author}</small></div>
       <div className="detail-copy"><span className="kicker">AUDIOBOOK</span><h1>{book.title}</h1><p>by {book.author}</p><div className="stats"><span><b>{book.chapters.length}</b> uploaded</span><i/><span><b>{book.totalChapters}</b> chapters</span></div>
-        <div className="detail-actions"><button className="primary" disabled={!book.chapters.length} onClick={() => onPlay(book, 0)}><Play size={18} fill="currentColor"/> Play from start</button><button className="secondary" disabled={book.chapters.length >= book.totalChapters} onClick={onUpload}><Upload size={18}/> Add chapter</button><button className="secondary" onClick={onIncrease}><PlusCircle size={18}/> Increase chapters</button></div>
+        <div className="detail-actions"><button className="primary" disabled={!book.chapters.length} onClick={() => onPlay(book, 0)}><Play size={18} fill="currentColor"/> Play from start</button><button className="secondary" disabled={book.chapters.length >= book.totalChapters} onClick={onUpload}><Upload size={18}/> Add chapter</button><button className="secondary" onClick={onRenameBook}><Pencil size={18}/> Rename book</button><button className="secondary" onClick={onIncrease}><PlusCircle size={18}/> Increase chapters</button></div>
       </div>
     </div>
     <div className="chapters-head"><div><span className="kicker">CONTENTS</span><h2>Chapters</h2></div><span>{book.chapters.length}/{book.totalChapters} complete</span></div>
@@ -167,6 +178,12 @@ function IncreaseChapters({ book, onClose, onUpdated }: { book: Book; onClose: (
   const [saving, setSaving] = useState(false); const [error, setError] = useState("");
   async function submit(e: React.FormEvent<HTMLFormElement>) { e.preventDefault(); setSaving(true); setError(""); const form = new FormData(e.currentTarget); const response = await fetch(`/api/books/${book.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ totalChapters: Number(form.get("totalChapters")) }) }); const data = await readJson(response); setSaving(false); if (!response.ok) setError(data.error); else onUpdated(); }
   return <Modal title="Increase chapter total" subtitle={`“${book.title}” currently allows ${book.totalChapters} chapters. Choose a larger total to create more upload slots.`} onClose={onClose}><form onSubmit={submit}><label>New total chapters<input name="totalChapters" type="number" required autoFocus min={book.totalChapters + 1} max="500" defaultValue={book.totalChapters + 1}/></label><small className="field-hint">This can only increase the limit; existing chapters and audio will not change.</small>{error && <p className="error">{error}</p>}<button className="primary submit" disabled={saving}>{saving ? <Loader2 className="spin"/> : <PlusCircle/>}{saving ? "Updating…" : "Increase chapters"}</button></form></Modal>;
+}
+
+function RenameBook({ book, onClose, onRenamed }: { book: Book; onClose: () => void; onRenamed: () => void }) {
+  const [saving, setSaving] = useState(false); const [error, setError] = useState("");
+  async function submit(e: React.FormEvent<HTMLFormElement>) { e.preventDefault(); setSaving(true); setError(""); const form = new FormData(e.currentTarget); const response = await fetch(`/api/books/${book.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: form.get("title") }) }); const data = await readJson(response); setSaving(false); if (!response.ok) setError(data.error); else onRenamed(); }
+  return <Modal title="Rename book" subtitle="Update the book title. Its author, chapters, and audio will stay the same." onClose={onClose}><form onSubmit={submit}><label>Book title<input name="title" required autoFocus maxLength={120} defaultValue={book.title}/></label>{error && <p className="error">{error}</p>}<button className="primary submit" disabled={saving}>{saving ? <Loader2 className="spin"/> : <Pencil/>}{saving ? "Saving…" : "Save book title"}</button></form></Modal>;
 }
 
 function RenameChapter({ book, chapter, onClose, onRenamed }: { book: Book; chapter: Chapter; onClose: () => void; onRenamed: () => void }) {

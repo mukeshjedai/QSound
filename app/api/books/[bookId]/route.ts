@@ -7,14 +7,25 @@ export async function PATCH(request: Request, context: { params: Promise<{ bookI
   try {
     const { bookId } = await context.params;
     const body = await request.json();
-    const totalChapters = Number(body.totalChapters);
     const books = await getBooks();
     const book = books.find((item) => item.id === bookId);
     if (!book) return NextResponse.json({ error: "Book not found." }, { status: 404 });
-    if (!Number.isInteger(totalChapters) || totalChapters <= book.totalChapters || totalChapters > 500) {
-      return NextResponse.json({ error: `Enter a chapter total between ${book.totalChapters + 1} and 500.` }, { status: 400 });
+
+    if (body.title !== undefined) {
+      const title = String(body.title || "").trim();
+      if (!title || title.length > 120) {
+        return NextResponse.json({ error: "Enter a book title between 1 and 120 characters." }, { status: 400 });
+      }
+      book.title = title;
+    } else if (body.totalChapters !== undefined) {
+      const totalChapters = Number(body.totalChapters);
+      if (!Number.isInteger(totalChapters) || totalChapters <= book.totalChapters || totalChapters > 500) {
+        return NextResponse.json({ error: `Enter a chapter total between ${book.totalChapters + 1} and 500.` }, { status: 400 });
+      }
+      book.totalChapters = totalChapters;
+    } else {
+      return NextResponse.json({ error: "No supported book changes were provided." }, { status: 400 });
     }
-    book.totalChapters = totalChapters;
     await saveBooks(books);
     return NextResponse.json(book);
   } catch (error) {
