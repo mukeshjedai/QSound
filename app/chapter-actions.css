@@ -1,5 +1,5 @@
-.delete-chapter {
-  margin-left: auto;
+.delete-chapter,
+.edit-chapter {
   width: 36px;
   height: 36px;
   border: 0;
@@ -12,8 +12,16 @@
   transition: opacity 150ms ease, color 150ms ease, background 150ms ease;
 }
 
+.chapter-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 2px;
+}
+
 .chapter-row:hover .delete-chapter,
-.delete-chapter:focus-visible {
+.chapter-row:hover .edit-chapter,
+.delete-chapter:focus-visible,
+.edit-chapter:focus-visible {
   opacity: 1;
 }
 
@@ -22,12 +30,17 @@
   background: #a8333312;
 }
 
+.edit-chapter:hover {
+  color: var(--orange);
+  background: #e9693c12;
+}
+
 .chapter-row .row-play {
   margin-left: 0;
 }
 
 @media (hover: none) {
-  .delete-chapter { opacity: 1; }
+  .delete-chapter, .edit-chapter { opacity: 1; }
 }
 
 .dropzone.is-dragging {

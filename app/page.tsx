@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, Check, ChevronLeft, ChevronRight, Headphones, Library, ListMusic, Loader2, Pause, Play, Plus, PlusCircle, Repeat2, Search, Trash2, Upload, Volume2, X } from "lucide-react";
+import { BookOpen, Check, ChevronLeft, ChevronRight, Headphones, Library, ListMusic, Loader2, Pause, Pencil, Play, Plus, PlusCircle, Repeat2, Search, Trash2, Upload, Volume2, X } from "lucide-react";
 import type { Book, Chapter } from "@/lib/types";
 
 type Playing = { book: Book; index: number } | null;
@@ -14,6 +14,7 @@ export default function Home() {
   const [selected, setSelected] = useState<Book | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [increaseOpen, setIncreaseOpen] = useState(false);
+  const [renameChapter, setRenameChapter] = useState<Chapter | null>(null);
   const [playing, setPlaying] = useState<Playing>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [loop, setLoop] = useState(false);
@@ -101,7 +102,7 @@ export default function Home() {
           </section>
         </>
       ) : (
-        <BookDetail book={selected} onBack={() => setSelected(null)} onUpload={() => setUploadOpen(true)} onIncrease={() => setIncreaseOpen(true)} onPlay={playChapter} onDelete={async (chapter) => {
+        <BookDetail book={selected} onBack={() => setSelected(null)} onUpload={() => setUploadOpen(true)} onIncrease={() => setIncreaseOpen(true)} onRename={setRenameChapter} onPlay={playChapter} onDelete={async (chapter) => {
           if (!window.confirm(`Delete “${chapter.title}” and its audio file? This cannot be undone.`)) return;
           const response = await fetch(`/api/books/${selected.id}/chapters/${chapter.id}`, { method: "DELETE" });
           const data = await response.json();
@@ -120,6 +121,9 @@ export default function Home() {
       {increaseOpen && selected && (
         <IncreaseChapters book={selected} onClose={() => setIncreaseOpen(false)} onUpdated={async () => { await refresh(); setIncreaseOpen(false); }}/>
       )}
+      {renameChapter && selected && (
+        <RenameChapter book={selected} chapter={renameChapter} onClose={() => setRenameChapter(null)} onRenamed={async () => { await refresh(); setRenameChapter(null); }}/>
+      )}
 
       <audio ref={audioRef} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onTimeUpdate={(e) => setProgress(e.currentTarget.currentTime)} onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)} onEnded={handleChapterEnded}/>
       {playing && chapter && <Player book={playing.book} chapter={chapter} index={playing.index} isPlaying={isPlaying} loop={loop} progress={progress} duration={duration} onToggle={() => playChapter(playing.book, playing.index)} onLoop={() => setLoop(!loop)} onNext={next} onPrev={() => playing.index > 0 && setPlaying({...playing, index: playing.index - 1})} onSeek={(v) => { if (audioRef.current) audioRef.current.currentTime = v; }}/>} 
@@ -134,7 +138,7 @@ function BookCard({ book, index, onOpen, onPlay }: { book: Book; index: number; 
   </article>;
 }
 
-function BookDetail({ book, onBack, onUpload, onIncrease, onPlay, onDelete, playing, isPlaying }: { book: Book; onBack: () => void; onUpload: () => void; onIncrease: () => void; onPlay: (b: Book, i: number) => void; onDelete: (chapter: Chapter) => void; playing: Playing; isPlaying: boolean }) {
+function BookDetail({ book, onBack, onUpload, onIncrease, onRename, onPlay, onDelete, playing, isPlaying }: { book: Book; onBack: () => void; onUpload: () => void; onIncrease: () => void; onRename: (chapter: Chapter) => void; onPlay: (b: Book, i: number) => void; onDelete: (chapter: Chapter) => void; playing: Playing; isPlaying: boolean }) {
   return <section className="detail">
     <button className="back" onClick={onBack}><ChevronLeft/> Back to library</button>
     <div className="detail-hero">
@@ -145,7 +149,7 @@ function BookDetail({ book, onBack, onUpload, onIncrease, onPlay, onDelete, play
     </div>
     <div className="chapters-head"><div><span className="kicker">CONTENTS</span><h2>Chapters</h2></div><span>{book.chapters.length}/{book.totalChapters} complete</span></div>
     <div className="progress-line"><i style={{width: `${(book.chapters.length / book.totalChapters) * 100}%`}}/></div>
-    <div className="chapter-list">{book.chapters.length ? book.chapters.map((ch, i) => { const active = playing?.book.id === book.id && playing.index === i; return <div key={ch.id} className={`chapter-row ${active ? "active" : ""}`} onClick={() => onPlay(book, i)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onPlay(book, i); }}><span className="chapter-number">{active && isPlaying ? <Pause size={16} fill="currentColor"/> : <>{String(i + 1).padStart(2, "0")}</>}</span><span><b>{ch.title}</b><small>Chapter {i + 1}</small></span><button className="delete-chapter" title={`Delete ${ch.title}`} aria-label={`Delete ${ch.title}`} onClick={(e) => { e.stopPropagation(); onDelete(ch); }}><Trash2 size={17}/></button><span className="row-play">{active && isPlaying ? <Pause/> : <Play fill="currentColor"/>}</span></div>; }) : <div className="empty compact"><ListMusic/><h3>No chapters yet</h3><p>Upload the first chapter to start listening.</p><button className="secondary" onClick={onUpload}><Upload size={17}/> Upload chapter</button></div>}</div>
+    <div className="chapter-list">{book.chapters.length ? book.chapters.map((ch, i) => { const active = playing?.book.id === book.id && playing.index === i; return <div key={ch.id} className={`chapter-row ${active ? "active" : ""}`} onClick={() => onPlay(book, i)} role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onPlay(book, i); }}><span className="chapter-number">{active && isPlaying ? <Pause size={16} fill="currentColor"/> : <>{String(i + 1).padStart(2, "0")}</>}</span><span><b>{ch.title}</b><small>Chapter {i + 1}</small></span><span className="chapter-actions"><button className="edit-chapter" title={`Rename ${ch.title}`} aria-label={`Rename ${ch.title}`} onClick={(e) => { e.stopPropagation(); onRename(ch); }}><Pencil size={16}/></button><button className="delete-chapter" title={`Delete ${ch.title}`} aria-label={`Delete ${ch.title}`} onClick={(e) => { e.stopPropagation(); onDelete(ch); }}><Trash2 size={17}/></button></span><span className="row-play">{active && isPlaying ? <Pause/> : <Play fill="currentColor"/>}</span></div>; }) : <div className="empty compact"><ListMusic/><h3>No chapters yet</h3><p>Upload the first chapter to start listening.</p><button className="secondary" onClick={onUpload}><Upload size={17}/> Upload chapter</button></div>}</div>
   </section>;
 }
 
@@ -163,6 +167,12 @@ function IncreaseChapters({ book, onClose, onUpdated }: { book: Book; onClose: (
   const [saving, setSaving] = useState(false); const [error, setError] = useState("");
   async function submit(e: React.FormEvent<HTMLFormElement>) { e.preventDefault(); setSaving(true); setError(""); const form = new FormData(e.currentTarget); const response = await fetch(`/api/books/${book.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ totalChapters: Number(form.get("totalChapters")) }) }); const data = await readJson(response); setSaving(false); if (!response.ok) setError(data.error); else onUpdated(); }
   return <Modal title="Increase chapter total" subtitle={`“${book.title}” currently allows ${book.totalChapters} chapters. Choose a larger total to create more upload slots.`} onClose={onClose}><form onSubmit={submit}><label>New total chapters<input name="totalChapters" type="number" required autoFocus min={book.totalChapters + 1} max="500" defaultValue={book.totalChapters + 1}/></label><small className="field-hint">This can only increase the limit; existing chapters and audio will not change.</small>{error && <p className="error">{error}</p>}<button className="primary submit" disabled={saving}>{saving ? <Loader2 className="spin"/> : <PlusCircle/>}{saving ? "Updating…" : "Increase chapters"}</button></form></Modal>;
+}
+
+function RenameChapter({ book, chapter, onClose, onRenamed }: { book: Book; chapter: Chapter; onClose: () => void; onRenamed: () => void }) {
+  const [saving, setSaving] = useState(false); const [error, setError] = useState("");
+  async function submit(e: React.FormEvent<HTMLFormElement>) { e.preventDefault(); setSaving(true); setError(""); const form = new FormData(e.currentTarget); const response = await fetch(`/api/books/${book.id}/chapters/${chapter.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ title: form.get("title") }) }); const data = await readJson(response); setSaving(false); if (!response.ok) setError(data.error); else onRenamed(); }
+  return <Modal title="Rename chapter" subtitle={`Update this chapter’s name in “${book.title}”. Its audio and position will stay the same.`} onClose={onClose}><form onSubmit={submit}><label>Chapter name<input name="title" required autoFocus maxLength={120} defaultValue={chapter.title}/></label>{error && <p className="error">{error}</p>}<button className="primary submit" disabled={saving}>{saving ? <Loader2 className="spin"/> : <Pencil/>}{saving ? "Saving…" : "Save chapter name"}</button></form></Modal>;
 }
 
 function UploadChapter({ book, onClose, onUploaded }: { book: Book; onClose: () => void; onUploaded: () => void }) {
