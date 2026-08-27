@@ -5,7 +5,7 @@ An Audible-inspired personal audiobook library built with Next.js. Create books,
 ## Local setup
 
 1. Copy `.env.example` to `.env.local`.
-2. Add your Azure Storage connection string and preferred container name.
+2. Add your Azure Storage connection string, preferred container name, and OpenAI API key.
 3. Run `npm install`, then `npm run dev`.
 
 The app creates the Azure container and `data/books.json` index automatically. Audio stays in a private container and is streamed through the app.
@@ -16,6 +16,8 @@ Import the repository in Vercel and add these Environment Variables:
 
 - `AZURE_STORAGE_CONNECTION_STRING`
 - `AZURE_STORAGE_CONTAINER` (optional; defaults to `qsound`)
+- `OPENAI_API_KEY` (required for PDF-to-Hindi generation)
+- `OPENAI_MODEL` (optional; defaults to `gpt-5.4-mini`)
 
 Then deploy. Audio files use short-lived Azure SAS URLs and bypass Vercel functions, so large uploads are not constrained by Vercel's request-body limit.
 

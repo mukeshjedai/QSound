@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./local-fonts.css";
 import "./chapter-actions.css";
+import "./pdf-nav.css";
 
 export const metadata: Metadata = {
   title: "QSound — Your private audiobook library",

@@ -1,0 +1,2 @@
+.pdf-nav{display:inline-flex;align-items:center;gap:7px;color:var(--ink);text-decoration:none;font-size:13px;font-weight:700;white-space:nowrap;margin-left:18px}.pdf-nav:hover{color:var(--orange)}
+@media(max-width:750px){.pdf-nav{margin-left:auto}.avatar{display:none}}

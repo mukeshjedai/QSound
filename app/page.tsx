@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, Check, ChevronLeft, ChevronRight, Headphones, Library, ListMusic, Loader2, Pause, Pencil, Play, Plus, PlusCircle, Repeat2, Search, Trash2, Upload, Volume2, X } from "lucide-react";
+import { BookOpen, Check, ChevronLeft, ChevronRight, FileText, Headphones, Library, ListMusic, Loader2, Pause, Pencil, Play, Plus, PlusCircle, Repeat2, Search, Trash2, Upload, Volume2, X } from "lucide-react";
 import type { Book, Chapter } from "@/lib/types";
 
 type Playing = { book: Book; index: number } | null;
@@ -88,6 +88,7 @@ export default function Home() {
       <nav>
         <button className="brand" onClick={() => setSelected(null)}><span className="brand-mark"><Headphones size={21}/></span><span>Q<span>Sound</span></span></button>
         <div className="search"><Search size={18}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search your library" /></div>
+        <a className="pdf-nav" href="/pdf-to-hindi"><FileText size={17}/> PDF to Hindi</a>
         <button className="avatar" aria-label="Profile">MK</button>
       </nav>
 
